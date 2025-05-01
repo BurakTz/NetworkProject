@@ -1,7 +1,7 @@
 import socket
 import threading
 
-nickname=input('Chosse a nickname:  ')
+nickname=input('Choose a nickname:  ')
 
 client =  socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 client.connect(('127.0.0.1',55555))
