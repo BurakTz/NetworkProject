@@ -1,7 +1,7 @@
 import sqlite3
 
-# chat.db veritabanını
-conn = sqlite3.connect("chat.db")
+# Veritabanına bağlan
+conn = sqlite3.connect("../db/chat.db")  # db klasörüne göre göreceli yol
 cursor = conn.cursor()
 
 # USERS TABLOSU
@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
     nickname TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     status TEXT DEFAULT 'offline',
-    last_login DATETIME
+    last_login DATETIME,
+    last_logout DATETIME
 );
 """)
 
@@ -42,4 +43,5 @@ CREATE TABLE IF NOT EXISTS group_messages (
 
 conn.commit()
 conn.close()
-print("Veritabanı başarıyla oluşturuldu!")
+
+print("✅ Veritabanı ve tablolar başarıyla oluşturuldu!")

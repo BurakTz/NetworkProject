@@ -1,30 +1,34 @@
 import socket
 import threading
 
-nickname=input('Choose a nickname:  ')
+# Sunucu bilgileri
+host = '127.0.0.1'
+port = 55555
 
-client =  socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-client.connect(('127.0.0.1',55555))
+# Soket oluştur
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client.connect((host, port))
 
+# Sunucudan gelen mesajları sürekli dinleyen fonksiyon
 def receive():
     while True:
         try:
             message = client.recv(1024).decode('utf-8')
-            if message == 'NICK':
-                client.send(nickname.encode('utf-8'))
-            else:
-                print(message)
-
+            print(message)
         except:
-            print("An error occurred!")
+            print("Bağlantı kesildi.")
             client.close()
             break
 
+# Kullanıcıdan mesaj alıp sunucuya gönderen fonksiyon
 def write():
     while True:
-        message = f'{nickname}: {input("")}'
-        client.send(message.encode('utf-8'))
+        msg = input()
+        client.send(msg.encode('utf-8'))
+        if msg.strip().upper() == "EXIT":
+            break
 
+# Alıcı ve gönderici işlemleri aynı anda çalışsın diye thread başlat
 receive_thread = threading.Thread(target=receive)
 receive_thread.start()
 
