@@ -66,18 +66,30 @@ def save_private_message(sender_id, receiver_id, message):
     conn.commit()
     conn.close()
 
+from datetime import datetime, timedelta
+import sqlite3
+
 def get_private_history(user1_id, user2_id):
-    conn = get_connection()
+    conn = sqlite3.connect("db/chat.db")
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT sender_id, message, timestamp FROM private_messages
+        SELECT sender_id, message, timestamp 
+        FROM private_messages
         WHERE (sender_id = ? AND receiver_id = ?)
            OR (sender_id = ? AND receiver_id = ?)
         ORDER BY timestamp ASC
     """, (user1_id, user2_id, user2_id, user1_id))
-    messages = cursor.fetchall()
+
+    messages = []
+    for sender_id, message, timestamp in cursor.fetchall():
+        # Zamanı UTC'den Türkiye saatine çevir (UTC+3)
+        dt = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S") + timedelta(hours=3)
+        local_time = dt.strftime("%d.%m %H:%M")  # Gün.Ay Saat:Dakika
+        messages.append((sender_id, message, local_time))
+
     conn.close()
     return messages
+
 
 def get_previous_contacts(user_id):
     conn = get_connection()
@@ -172,3 +184,15 @@ def get_user_id_by_nickname(nickname):
     result = cursor.fetchone()
     conn.close()
     return result[0] if result else None
+
+def logout_user(nickname):
+    conn = sqlite3.connect("db/chat.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE users 
+        SET status = 'offline', 
+            last_logout = CURRENT_TIMESTAMP 
+        WHERE nickname = ?
+    """, (nickname,))
+    conn.commit()
+    conn.close()

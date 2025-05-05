@@ -1,4 +1,3 @@
-# server.py - Güncellenmiş sunucu kodu (OPEN CHAT & PRIVATE SEND sistemli)
 
 import socket
 import threading
@@ -75,20 +74,38 @@ def handle(client):
                             clients.append(client)
 
                         client.send(f"Hoş geldin, {nick}.\n".encode())
-                        client.send("Kullanabileceğin komutlar:\n- WHO\n- SEND <mesaj>\n- REQUEST <kullanıcı>\n- ACCEPT <kullanıcı>\n- OPEN CHAT <kullanıcı>\n- PRIVATE SEND <mesaj>\n- CLOSE CHAT\n- EXIT\n".encode())
+                        client.send(
+                            "\nKullanabileceğin komutlar:\n"
+                            "- WHO → Şu anda online olan kullanıcıları listeler. Örnek: WHO\n"
+                            "- SEND <mesaj> → Genel sohbete mesaj gönderir. Örnek: SEND Merhaba herkese!\n"
+                            "- REQUEST <kullanıcı> → Belirtilen kullanıcıya özel sohbet isteği yollar. Örnek: REQUEST ahmet\n"
+                            "- ACCEPT <kullanıcı> → Gelen özel sohbet isteğini kabul eder. Örnek: ACCEPT ahmet\n"
+                            "- OPEN CHAT <kullanıcı> → Önceden onayladığınız biriyle özel sohbeti başlatır. Örnek: OPEN CHAT ahmet\n"
+                            "- PRIVATE SEND <mesaj> → Aktif özel sohbet içindeki kullanıcıya mesaj gönderir. Örnek: PRIVATE SEND selam naber\n"
+                            "- CLOSE CHAT → Açık olan özel sohbeti kapatır.\n"
+                            "- DISCONNECT → Oturumdan çıkış yapar, ana menüye döner. Bağlantı kapanmaz.\n"
+                            "- EXIT → Sistemden tamamen çıkar ve bağlantıyı kapatır.\n".encode()
+                        )
+
+                        # Geçmiş chatler gösteriliyor
+                        contacts = get_previous_contacts(user[0])
+                        if contacts:
+                            client.send("\nGeçmiş Chatler:\n".encode())
+                            for name in contacts:
+                                conn = sqlite3.connect("db/chat.db")
+                                cursor = conn.cursor()
+                                cursor.execute("SELECT status FROM users WHERE nickname = ?", (name,))
+                                row = cursor.fetchone()
+                                conn.close()
+                                durum = "(online)" if row and row[0] == "online" else "(offline)"
+                                client.send(f"- {name} {durum}\n".encode())
+                        else:
+                            client.send("\nHiç özel sohbet yapılmamış.\n".encode())
+
                     else:
                         client.send("Giriş başarısız.\n".encode())
                 except:
                     client.send("LOGIN komutu hatalı.\n".encode())
-
-            # Online kullanıcıları gösterir
-            elif message.strip().upper() == "WHO" and logged_in:
-                seen = set()
-                client.send("Online kullanıcılar:\n".encode())
-                for u in user_data.values():
-                    if u[1] not in seen:
-                        seen.add(u[1])
-                        client.send(f"- {u[1]}\n".encode())
 
             # Genel sohbete mesaj gönderme
             elif message.startswith("SEND ") and logged_in:
@@ -198,7 +215,9 @@ def handle(client):
                                 pass  # mesaj veritabanına kaydedildi zaten
                             break
 
-                    client.send("(özel) mesaj gönderildi.\n".encode())
+                    timestamp = datetime.now().strftime("%H:%M")
+                    client.send(f"(özel) mesaj gönderildi. [{timestamp}]\n".encode())
+
                 else:
                     client.send("Alıcı bulunamadı.\n".encode())
 
@@ -210,6 +229,23 @@ def handle(client):
                     client.send("Özel sohbet kapatıldı.\n".encode())
                 else:
                     client.send("Aktif özel sohbet yok.\n".encode())
+
+            # Özel sohbetteki kullanıcıların onnlıne offlıne olma durumunu duzenler
+            elif message.strip().upper() == "CHAT DURUM YENILE" and logged_in:
+                contacts = get_previous_contacts(user_info[0])
+                if contacts:
+                    client.send("\nGeçmişte sohbet ettiğiniz kullanıcılar (durumları güncellenmiştir):\n".encode())
+                    for name in contacts:
+                        conn = sqlite3.connect("db/chat.db")
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT status FROM users WHERE nickname = ?", (name,))
+                        row = cursor.fetchone()
+                        conn.close()
+                        durum = "(online)" if row and row[0] == "online" else "(offline)"
+                        client.send(f"- {name} {durum}\n".encode())
+                else:
+                    client.send("\nDaha önce özel sohbet yaptığınız bir kullanıcı bulunmamaktadır.\n".encode())
+
 
             # Oturumu kapat ama bağlantıyı kesme
             elif message.strip().upper() == "DISCONNECT" and logged_in:
