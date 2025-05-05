@@ -174,19 +174,34 @@ def handle(client):
                     continue
                 _, _, content = parts
                 partner = active_private_chats.get(client)
+
                 if not partner:
                     client.send("Aktif özel sohbet yok. Önce OPEN CHAT kullan.\n".encode())
                     continue
+
+                # Alıcının ID'sini belirle
                 if isinstance(partner, socket.socket):
                     receiver_id = user_data[partner][0]
-                    partner.send(f"(özel) {user_info[1]}: {content}\n".encode())
                 else:
                     receiver_id = get_user_id_by_nickname(partner)
+
                 if receiver_id:
+                    # Veritabanına kaydet (her zaman)
                     save_private_message(user_info[0], receiver_id, content)
+
+                    # Eğer karşı taraf online ve socket varsa gönder
+                    for c, u in user_data.items():
+                        if u[0] == receiver_id:
+                            try:
+                                c.send(f"(özel) {user_info[1]}: {content}\n".encode())
+                            except:
+                                pass  # mesaj veritabanına kaydedildi zaten
+                            break
+
                     client.send("(özel) mesaj gönderildi.\n".encode())
                 else:
                     client.send("Alıcı bulunamadı.\n".encode())
+
 
             # Özel sohbeti kapatma
             elif message.strip().upper() == "CLOSE CHAT" and logged_in:
@@ -195,6 +210,15 @@ def handle(client):
                     client.send("Özel sohbet kapatıldı.\n".encode())
                 else:
                     client.send("Aktif özel sohbet yok.\n".encode())
+
+            # Oturumu kapat ama bağlantıyı kesme
+            elif message.strip().upper() == "DISCONNECT" and logged_in:
+                update_status(user_info[0], "offline")
+                client.send("Bağlantı sonlandırıldı. Ana menüye dönüyorsunuz...\n".encode())
+                logged_in = False
+                user_info = None
+                if client in active_private_chats:
+                    del active_private_chats[client]
 
             # Oturum sonlandırma
             elif message.strip().upper() == "EXIT":
