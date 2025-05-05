@@ -14,19 +14,28 @@ def receive():
     while True:
         try:
             message = client.recv(1024).decode('utf-8')
+            if not message:  # Sunucu bağlantıyı kesti mi?
+                print("Sunucu bağlantıyı kapattı.")
+                break
             print(message)
         except:
             print("Bağlantı kesildi.")
-            client.close()
             break
+    client.close()
+    exit()  # Programı tamamen sonlandır
+
 
 # Kullanıcıdan mesaj alıp sunucuya gönderen fonksiyon
 def write():
+    print("- REGISTER <kullanıcı_adı> <şifre> → Yeni hesap oluşturur.")
+    print("- LOGIN <kullanıcı_adı> <şifre> → Sisteme giriş yapar.\n")
     while True:
         msg = input()
         client.send(msg.encode('utf-8'))
         if msg.strip().upper() == "EXIT":
+            client.shutdown(socket.SHUT_RDWR)  # bağlantıyı çift taraflı kapat
             break
+
 
 # Alıcı ve gönderici işlemleri aynı anda çalışsın diye thread başlat
 receive_thread = threading.Thread(target=receive)

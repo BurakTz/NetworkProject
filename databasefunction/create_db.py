@@ -41,7 +41,30 @@ CREATE TABLE IF NOT EXISTS group_messages (
 );
 """)
 
+# Yeni tablo: özel sohbet istekleri
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS private_chat_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender_id INTEGER,
+    receiver_id INTEGER,
+    status INTEGER DEFAULT 0
+)
+""")
+
+# CHAT_RELATIONS TABLOSU (OPEN CHAT için gerekli)
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS chat_relations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user1_id INTEGER NOT NULL,
+    user2_id INTEGER NOT NULL,
+    accepted INTEGER DEFAULT 0,
+    FOREIGN KEY (user1_id) REFERENCES users(id),
+    FOREIGN KEY (user2_id) REFERENCES users(id)
+);
+""")
+
+
 conn.commit()
 conn.close()
 
-print("✅ Veritabanı ve tablolar başarıyla oluşturuldu!")
+print("Veritabanı ve tablolar başarıyla oluşturuldu!")

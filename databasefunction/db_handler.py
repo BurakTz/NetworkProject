@@ -32,11 +32,9 @@ def update_status(user_id, status):
     cursor = conn.cursor()
     now = datetime.now()
 
-    # Şu anki durumu öğren
     cursor.execute("SELECT status FROM users WHERE id = ?", (user_id,))
     current_status = cursor.fetchone()[0]
 
-    # Eğer zaten o durumdaysa işlem yapma
     if current_status == status:
         print(f"Zaten '{status}' durumundasın.")
         conn.close()
@@ -58,21 +56,119 @@ def update_status(user_id, status):
     conn.commit()
     conn.close()
 
-
-# Kullanıcıyı çıkış yaptıktan sonra offline olarak görünsün
-def logout_user(nickname):
+def save_private_message(sender_id, receiver_id, message):
     conn = get_connection()
     cursor = conn.cursor()
-    try:
-        # Kullanıcının ID'sini bul
-        cursor.execute("SELECT id FROM users WHERE nickname = ?", (nickname,))
-        user = cursor.fetchone()
-        if user:
-            update_status(user[0],"offline")
-            return True
-        else:
-            return False
-    except:
-        return False
-    finally:
-        conn.close()
+    cursor.execute("""
+        INSERT INTO private_messages (sender_id, receiver_id, message)
+        VALUES (?, ?, ?)
+    """, (sender_id, receiver_id, message))
+    conn.commit()
+    conn.close()
+
+def get_private_history(user1_id, user2_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT sender_id, message, timestamp FROM private_messages
+        WHERE (sender_id = ? AND receiver_id = ?)
+           OR (sender_id = ? AND receiver_id = ?)
+        ORDER BY timestamp ASC
+    """, (user1_id, user2_id, user2_id, user1_id))
+    messages = cursor.fetchall()
+    conn.close()
+    return messages
+
+def get_previous_contacts(user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT DISTINCT u.nickname
+        FROM users u
+        JOIN (
+            SELECT receiver_id AS user_id FROM private_messages WHERE sender_id = ?
+            UNION
+            SELECT sender_id AS user_id FROM private_messages WHERE receiver_id = ?
+        ) AS chat_users ON chat_users.user_id = u.id
+    """, (user_id, user_id))
+    results = cursor.fetchall()
+    conn.close()
+    return [row[0] for row in results]
+
+# Yeni: İstek gönderme
+def create_chat_request(sender_id, receiver_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO private_chat_requests (sender_id, receiver_id, status) VALUES (?, ?, 0)",
+        (sender_id, receiver_id)
+    )
+    conn.commit()
+    conn.close()
+
+# Yeni: Kabul edilen isteği güncelleme
+def accept_chat_request(sender_id, receiver_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE private_chat_requests
+        SET status = 1
+        WHERE sender_id = ? AND receiver_id = ? AND status = 0
+        """,
+        (sender_id, receiver_id)
+    )
+    conn.commit()
+    conn.close()
+
+# Yeni: Sohbet hakkı var mı kontrolü
+def is_chat_accepted(user1_id, user2_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT accepted FROM chat_relations
+        WHERE (user1_id = ? AND user2_id = ?)
+           OR (user1_id = ? AND user2_id = ?)
+        """,
+        (user1_id, user2_id, user2_id, user1_id)
+    )
+    row = cursor.fetchone()
+    conn.close()
+    return row and row[0] == 1
+
+def create_or_update_chat_relation(user1_id, user2_id, accepted=1):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Her iki yönde kontrol et
+    cursor.execute("""
+        SELECT * FROM chat_relations
+        WHERE (user1_id = ? AND user2_id = ?)
+           OR (user1_id = ? AND user2_id = ?)
+    """, (user1_id, user2_id, user2_id, user1_id))
+    result = cursor.fetchone()
+
+    if result:
+        cursor.execute("""
+            UPDATE chat_relations
+            SET accepted = ?
+            WHERE (user1_id = ? AND user2_id = ?)
+               OR (user1_id = ? AND user2_id = ?)
+        """, (accepted, user1_id, user2_id, user2_id, user1_id))
+    else:
+        cursor.execute("""
+            INSERT INTO chat_relations (user1_id, user2_id, accepted)
+            VALUES (?, ?, ?)
+        """, (user1_id, user2_id, accepted))
+
+    conn.commit()
+    conn.close()
+
+def get_user_id_by_nickname(nickname):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM users WHERE nickname = ?", (nickname,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
