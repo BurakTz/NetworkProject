@@ -117,6 +117,23 @@ def handle(client):
                         c.send(f"[{timestamp}] {sender}: {content}\n".encode())
                 client.send("Mesaj gönderildi.\n".encode())
 
+            # SVde kim var kim onnline kim offline
+            elif message.strip().upper() == "WHO" and logged_in:
+                conn = sqlite3.connect("db/chat.db")
+                cursor = conn.cursor()
+                cursor.execute("SELECT nickname,status FROM users")
+                users = cursor.fetchall()
+                conn.close()
+                if users:
+                    response = "\nTüm kullanıcılar:\n"
+                    for nick, status in users:
+                        durum = "(online)" if status == "online" else "(offline)"
+                        response += f"- {nick} {durum}\n"
+                    client.send(response.encode())
+                else:
+                    client.send("Kayıtlı kullanıcı bulunamadı.\n".encode())
+
+
             # Özel sohbet isteği gönderme
             elif message.startswith("REQUEST ") and logged_in:
                 parts = message.split(" ", 1)
